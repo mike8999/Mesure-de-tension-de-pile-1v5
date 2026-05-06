@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tri de piles — Histogramme interactif</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@300;400;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   VARIABLES & RESET
+═══════════════════════════════════════════ */
+:root {
+  --bg: #ffffff;
+  --surface: #f8f8f6;
+  --border: #e0e0dc;
+  --border-strong: #c8c8c2;
+  --text: #1a1a16;
+  --text-mid: #5a5a52;
+  --text-light: #9a9a90;
+  --accent: #1a1a16;
+
+  --green: #2d6a4f;
+  --green-bg: #eef7f2;
+  --green-border: #a8d8bb;
+
+  --orange: #b84d00;
+  --orange-bg: #fff5ed;
+  --orange-border: #f0b880;
+
+  --red: #9b1c1c;
+  --red-bg: #fdf2f2;
+  --red-border: #f0a0a0;
+
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --serif: 'Source Serif 4', Georgia, serif;
+  --display: 'Playfair Display', Georgia, serif;
+
+  --radius: 3px;
+  --shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--serif);
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  padding: 0 0 60px;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+.page-header {
+  background: var(--text);
+  color: #fff;
+  padding: 18px 32px 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.page-header h1 {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+.page-header .sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255,255,255,.5);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.btn-pdf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: var(--text);
+  border: none;
+  padding: 9px 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  white-space: nowrap;
+  border-radius: var(--radius);
+}
+.btn-pdf:hover { background: #f0f0ec; transform: translateY(-1px); }
+.btn-pdf:active { transform: translateY(0); }
+.btn-pdf svg { flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════
+   INFOS ÉLÈVE
+═══════════════════════════════════════════ */
+.student-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 32px;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.student-bar label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.student-bar input {
+  font-family: var(--mono);
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 5px 9px;
+  background: #fff;
+  color: var(--text);
+  width: 160px;
+  outline: none;
+  transition: border-color .15s;
+}
+.student-bar input:focus { border-color: var(--text); }
+.student-bar input.short { width: 90px; }
+
+/* ═══════════════════════════════════════════
+   CORPS PRINCIPAL : 2 COLONNES
+═══════════════════════════════════════════ */
+.main-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ═══════════════════════════════════════════
+   COLONNE GAUCHE — SAISIE
+═══════════════════════════════════════════ */
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.panel-head {
+  background: var(--text);
+  color: #fff;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.panel-head .count {
+  font-size: 11px;
+  color: rgba(255,255,255,.5);
+}
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.pile-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  transition: background .1s;
+}
+.pile-row:nth-child(even) { border-right: none; }
+.pile-row:hover { background: var(--surface); }
+
+.pile-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-light);
+  width: 32px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  letter-spacing: .04em;
+}
+.pile-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 6px 8px 2px;
+  background: transparent;
+  color: var(--text);
+  width: 0;
+  min-width: 0;
+  text-align: right;
+  padding-right: 6px;
+}
+.pile-input::placeholder { color: var(--border-strong); font-weight: 400; }
+
+.pile-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  margin: 0 8px;
+  flex-shrink: 0;
+  transition: background .3s, transform .2s;
+}
+.pile-dot.green { background: var(--green); transform: scale(1.2); }
+.pile-dot.orange { background: var(--orange); transform: scale(1.2); }
+.pile-dot.red { background: var(--red); transform: scale(1.2); }
+
+.pile-row.valid-green { background: color-mix(in srgb, var(--green-bg) 60%, white); }
+.pile-row.valid-orange { background: color-mix(in srgb, var(--orange-bg) 60%, white); }
+.pile-row.valid-red { background: color-mix(in srgb, var(--red-bg) 60%, white); }
+
+.panel-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.btn-clear {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-light);
+  background: none;
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: all .15s;
+}
+.btn-clear:hover { border-color: var(--red); color: var(--red); }
+.saisie-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-light);
+}
+
+/* ═══════════════════════════════════════════
+   COLONNE DROITE — GRAPHIQUE & STATS
+═══════════════════════════════════════════ */
+.right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── HISTOGRAMME ─── */
+.histo-panel {}
+.histo-container {
+  padding: 20px 20px 4px;
+}
+.histo-svg-wrap {
+  position: relative;
+}
+.histo-svg {
+  width: 100%;
+  overflow: visible;
+}
+
+/* Bars SVG — transition sur height/y */
+.bar-rect {
+  transition: height .4s cubic-bezier(.4,0,.2,1), y .4s cubic-bezier(.4,0,.2,1), opacity .3s;
+}
+.bar-rect.green { fill: var(--green); }
+.bar-rect.orange { fill: var(--orange); }
+.bar-rect.red { fill: var(--red); }
+.bar-rect.empty { fill: var(--border); opacity: .5; }
+
+.bar-val-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text);
+  transition: opacity .3s;
+  dominant-baseline: auto;
+}
+.bar-val-text.hidden { opacity: 0; }
+
+.axis-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--text-light);
+}
+.axis-line { stroke: var(--border-strong); stroke-width: 1; }
+.grid-line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; }
+.y-label { font-family: var(--mono); font-size: 10px; fill: var(--text-light); }
+
+/* ─── LÉGENDE ─── */
+.legend {
+  display: flex;
+  gap: 16px;
+  padding: 8px 20px 16px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-mid);
+}
+.legend-dot {
+  width: 10px; height: 10px; border-radius: 2px;
+}
+.legend-dot.green { background: var(--green); }
+.legend-dot.orange { background: var(--orange); }
+.legend-dot.red { background: var(--red); }
+
+/* ─── STATS ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+}
+.stat-cell {
+  padding: 14px 10px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 5px;
+}
+.stat-val {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+  transition: color .3s;
+}
+.stat-val.empty { color: var(--border-strong); font-size: 14px; }
+
+/* ─── BILAN CATÉGORIES ─── */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+.cat-cell {
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+}
+.cat-cell:last-child { border-right: none; }
+.cat-cell.green-cell { background: var(--green-bg); }
+.cat-cell.orange-cell { background: var(--orange-bg); }
+.cat-cell.red-cell { background: var(--red-bg); }
+
+.cat-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.cat-color-bar {
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.cat-color-bar.green { background: var(--green); }
+.cat-color-bar.orange { background: var(--orange); }
+.cat-color-bar.red { background: var(--red); }
+
+.cat-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.cat-name.green { color: var(--green); }
+.cat-name.orange { color: var(--orange); }
+.cat-name.red { color: var(--red); }
+
+.cat-range {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-light);
+  margin-bottom: 8px;
+}
+
+.cat-big {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.cat-big.green { color: var(--green); }
+.cat-big.orange { color: var(--orange); }
+.cat-big.red { color: var(--red); }
+
+.cat-pct {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-mid);
+}
+
+/* ─── BARRE DE PROGRESSION ─── */
+.progress-bar-wrap {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.progress-bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+}
+.progress-seg {
+  height: 100%;
+  transition: width .4s cubic-bezier(.4,0,.2,1);
+}
+.progress-seg.green { background: var(--green); }
+.progress-seg.orange { background: var(--orange); }
+.progress-seg.red { background: var(--red); }
+
+/* ─── MESSAGE VIDE ─── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+  color: var(--text-light);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-align: center;
+}
+.empty-state svg { opacity: .25; margin-bottom: 4px; }
+
+/* ═══════════════════════════════════════════
+   IMPRESSION / PDF
+═══════════════════════════════════════════ */
+@media print {
+  @page { margin: 15mm 15mm 15mm; size: A4 portrait; }
+
+  body { padding: 0; font-size: 11px; }
+
+  .page-header { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; color: #fff; padding: 10px 16px; }
+  .btn-pdf { display: none !important; }
+  .student-bar { padding: 8px 16px; background: #f8f8f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .student-bar input { border: none !important; font-size: 11px !important; padding: 2px 4px !important; width: auto !important; }
+  .student-bar label { font-size: 9px !important; }
+
+  .main-grid { display: grid; grid-template-columns: 260px 1fr; gap: 12px; padding: 12px 16px; max-width: 100%; }
+
+  .panel { box-shadow: none; border: 1px solid #ccc; }
+  .panel-head { background: #1a1a16 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 6px 10px; font-size: 9px; }
+
+  .pile-row { border-bottom: 1px solid #ddd; }
+  .pile-input { font-size: 11px; padding: 5px 4px; }
+  .pile-label { font-size: 9px; width: 28px; }
+  .pile-dot { width: 6px; height: 6px; margin: 0 5px; }
+
+  .pile-row.valid-green { background: #eef7f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pile-row.valid-orange { background: #fff5ed !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pile-row.valid-red { background: #fdf2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .pile-dot.green { background: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pile-dot.orange { background: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pile-dot.red { background: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .panel-foot { display: none; }
+
+  .right-col { gap: 10px; }
+  .histo-container { padding: 10px 10px 2px; }
+
+  .cat-cell.green-cell { background: #eef7f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-cell.orange-cell { background: #fff5ed !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-cell.red-cell { background: #fdf2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .cat-big.green { color: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-big.orange { color: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-big.red { color: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .cat-color-bar.green { background: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-color-bar.orange { background: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cat-color-bar.red { background: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .bar-rect.green { fill: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bar-rect.orange { fill: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bar-rect.red { fill: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .progress-seg.green { background: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .progress-seg.orange { background: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .progress-seg.red { background: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .legend { padding: 4px 10px 10px; }
+  .legend-dot.green { background: #2d6a4f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .legend-dot.orange { background: #b84d00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .legend-dot.red { background: #9b1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .stat-val { font-size: 14px !important; }
+  .cat-big { font-size: 22px !important; }
+  .empty-state { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── EN-TÊTE ─── -->
+<header class="page-header">
+  <div>
+    <div class="sub">TP Seconde — Mesure de tension</div>
+    <h1>Trier des piles usagées par mesure de tension</h1>
+  </div>
+  <button class="btn-pdf" onclick="exportPDF()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>
+    </svg>
+    Enregistrer en PDF
+  </button>
+</header>
+
+<!-- ─── BARRE ÉLÈVE ─── -->
+<div class="student-bar">
+  <label>Nom
+    <input type="text" id="nom" placeholder="Dupont" />
+  </label>
+  <label>Prénom
+    <input type="text" id="prenom" placeholder="Marie" />
+  </label>
+  <label>Classe
+    <input type="text" id="classe" placeholder="2nde A" class="short" />
+  </label>
+  <label>Groupe
+    <input type="text" id="groupe" placeholder="G2" class="short" />
+  </label>
+  <label>Date
+    <input type="date" id="date" class="short" style="width:130px;" />
+  </label>
+</div>
+
+<!-- ─── GRILLE PRINCIPALE ─── -->
+<div class="main-grid">
+
+  <!-- COLONNE GAUCHE : saisie -->
+  <div>
+    <div class="panel">
+      <div class="panel-head">
+        <span>Valeurs mesurées (V)</span>
+        <span class="count" id="count-label">0 / 20</span>
+      </div>
+      <div class="input-grid" id="input-grid">
+        <!-- généré par JS -->
+      </div>
+      <div class="panel-foot">
+        <button class="btn-clear" onclick="clearAll()">Effacer tout</button>
+        <span class="saisie-hint">Ex : 1.35 ou 1,35</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLONNE DROITE : graphique + stats -->
+  <div class="right-col">
+
+    <!-- HISTOGRAMME -->
+    <div class="panel histo-panel">
+      <div class="panel-head">
+        <span>Histogramme des tensions</span>
+        <span class="count" id="n-label">n = 0</span>
+      </div>
+      <div class="histo-container">
+        <div class="histo-svg-wrap">
+          <svg id="histo-svg" class="histo-svg" viewBox="0 0 560 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- généré par JS -->
+          </svg>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot green"></div> Bonne ≥ 1,3 V</div>
+        <div class="legend-item"><div class="legend-dot orange"></div> Faible 1,1 – 1,3 V</div>
+        <div class="legend-item"><div class="legend-dot red"></div> Usée &lt; 1,1 V</div>
+      </div>
+    </div>
+
+    <!-- STATISTIQUES -->
+    <div class="panel">
+      <div class="panel-head"><span>Indicateurs statistiques</span></div>
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-label">Minimum</div>
+          <div class="stat-val empty" id="stat-min">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Maximum</div>
+          <div class="stat-val empty" id="stat-max">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Étendue</div>
+          <div class="stat-val empty" id="stat-range">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Moyenne</div>
+          <div class="stat-val empty" id="stat-mean">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Médiane</div>
+          <div class="stat-val empty" id="stat-median">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BILAN CATÉGORIES -->
+    <div class="panel">
+      <div class="panel-head"><span>Bilan par catégorie</span></div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-track">
+          <div class="progress-seg green" id="prog-green" style="width:0%"></div>
+          <div class="progress-seg orange" id="prog-orange" style="width:0%"></div>
+          <div class="progress-seg red" id="prog-red" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="cat-grid">
+        <div class="cat-cell green-cell">
+          <div class="cat-header">
+            <div class="cat-color-bar green"></div>
+            <div class="cat-name green">Bonne</div>
+          </div>
+          <div class="cat-range">U ≥ 1,3 V</div>
+          <div class="cat-big green" id="cat-n-green">0</div>
+          <div class="cat-pct" id="cat-pct-green">0 %</div>
+        </div>
+        <div class="cat-cell orange-cell">
+          <div class="cat-header">
+            <div class="cat-color-bar orange"></div>
+            <div class="cat-name orange">Faible</div>
+          </div>
+          <div class="cat-range">1,1 ≤ U &lt; 1,3 V</div>
+          <div class="cat-big orange" id="cat-n-orange">0</div>
+          <div class="cat-pct" id="cat-pct-orange">0 %</div>
+        </div>
+        <div class="cat-cell red-cell">
+          <div class="cat-header">
+            <div class="cat-color-bar red"></div>
+            <div class="cat-name red">Usée</div>
+          </div>
+          <div class="cat-range">U &lt; 1,1 V</div>
+          <div class="cat-big red" id="cat-n-red">0</div>
+          <div class="cat-pct" id="cat-pct-red">0 %</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════ */
+const N_PILES = 20;
+
+// Intervalles : [min, max[  (dernier inclus)
+const BINS = [
+  { label: '[0,8 ; 1,0[', min: 0.8,  max: 1.0,  cat: 'red'    },
+  { label: '[1,0 ; 1,1[', min: 1.0,  max: 1.1,  cat: 'red'    },
+  { label: '[1,1 ; 1,2[', min: 1.1,  max: 1.2,  cat: 'orange' },
+  { label: '[1,2 ; 1,3[', min: 1.2,  max: 1.3,  cat: 'orange' },
+  { label: '[1,3 ; 1,4[', min: 1.3,  max: 1.4,  cat: 'green'  },
+  { label: '[1,4 ; 1,5]', min: 1.4,  max: 1.501, cat: 'green' },
+];
+
+// SVG dimensions (viewBox 560 x 200)
+const SVG_W = 560, SVG_H = 200;
+const PAD = { top: 24, right: 16, bottom: 44, left: 36 };
+const plotW = SVG_W - PAD.left - PAD.right;
+const plotH = SVG_H - PAD.top - PAD.bottom;
+const barW = plotW / BINS.length;
+
+/* ═══════════════════════════════════════════
+   BUILD INPUT GRID
+═══════════════════════════════════════════ */
+const grid = document.getElementById('input-grid');
+for (let i = 1; i <= N_PILES; i++) {
+  const row = document.createElement('div');
+  row.className = 'pile-row';
+  row.id = `row-${i}`;
+  row.innerHTML = `
+    <span class="pile-label">P${i}</span>
+    <input class="pile-input" id="inp-${i}" type="text" inputmode="decimal"
+           placeholder="— V" maxlength="6"
+           oninput="handleInput(${i}, this)" onkeydown="handleKeyDown(event, ${i})">
+    <span class="pile-dot" id="dot-${i}"></span>
+  `;
+  grid.appendChild(row);
+}
+
+/* ═══════════════════════════════════════════
+   BUILD SVG SKELETON
+═══════════════════════════════════════════ */
+const svg = document.getElementById('histo-svg');
+
+function buildSVG() {
+  svg.innerHTML = '';
+
+  const g = (tag, attrs = {}) => {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  };
+  const text = (x, y, txt, cls, anchor = 'middle') => {
+    const t = g('text', { x, y, class: cls, 'text-anchor': anchor });
+    t.textContent = txt;
+    svg.appendChild(t);
+    return t;
+  };
+
+  // Grille horizontale Y (0 à 10, 5 lignes)
+  for (let yv = 0; yv <= 10; yv += 2) {
+    const yy = PAD.top + plotH - (yv / 12) * plotH;
+    const line = g('line', {
+      x1: PAD.left, y1: yy, x2: PAD.left + plotW, y2: yy,
+      class: yv === 0 ? 'axis-line' : 'grid-line'
+    });
+    svg.appendChild(line);
+    if (yv > 0) text(PAD.left - 6, yy + 3, yv, 'y-label', 'end');
+  }
+
+  // Axe Y
+  const axY = g('line', {
+    x1: PAD.left, y1: PAD.top, x2: PAD.left, y2: PAD.top + plotH, class: 'axis-line'
+  });
+  svg.appendChild(axY);
+
+  // Titre axe Y
+  const ty = g('text', { x: 10, y: PAD.top + plotH / 2, class: 'axis-text',
+    'text-anchor': 'middle', transform: `rotate(-90, 10, ${PAD.top + plotH / 2})` });
+  ty.textContent = 'Effectif';
+  svg.appendChild(ty);
+
+  // Barres + labels X
+  BINS.forEach((bin, i) => {
+    const x = PAD.left + i * barW;
+    const yBase = PAD.top + plotH;
+
+    // Barre (rect initial vide)
+    const rect = g('rect', {
+      id: `bar-${i}`,
+      x: x + 3,
+      y: yBase,
+      width: barW - 6,
+      height: 0,
+      class: `bar-rect empty`,
+      rx: 2
+    });
+    svg.appendChild(rect);
+
+    // Valeur au-dessus de la barre
+    const valT = g('text', {
+      id: `bar-val-${i}`,
+      x: x + barW / 2,
+      y: yBase - 5,
+      class: 'bar-val-text hidden',
+      'text-anchor': 'middle'
+    });
+    valT.textContent = '';
+    svg.appendChild(valT);
+
+    // Label X (2 lignes)
+    const parts = bin.label.replace('[', '').replace('[', '').replace(']', '').split(';');
+    const lx = x + barW / 2;
+    const ly = yBase + 13;
+    const tx1 = g('text', { x: lx, y: ly, class: 'axis-text', 'text-anchor': 'middle' });
+    tx1.textContent = bin.label;
+    svg.appendChild(tx1);
+  });
+}
+
+buildSVG();
+
+/* ═══════════════════════════════════════════
+   LOGIQUE PRINCIPALE
+═══════════════════════════════════════════ */
+const values = new Array(N_PILES).fill(null);
+
+function parseVal(str) {
+  const cleaned = str.replace(',', '.').trim();
+  const v = parseFloat(cleaned);
+  if (isNaN(v) || v < 0.0 || v > 2.0) return null;
+  return v;
+}
+
+function getCategory(v) {
+  if (v === null) return null;
+  if (v >= 1.3) return 'green';
+  if (v >= 1.1) return 'orange';
+  return 'red';
+}
+
+function getBin(v) {
+  if (v === null) return -1;
+  for (let i = 0; i < BINS.length; i++) {
+    if (v >= BINS[i].min && v < BINS[i].max) return i;
+  }
+  return -1;
+}
+
+function handleInput(idx, input) {
+  const raw = input.value;
+  const v = parseVal(raw);
+  values[idx - 1] = v;
+
+  const row = document.getElementById(`row-${idx}`);
+  const dot = document.getElementById(`dot-${idx}`);
+
+  // Reset classes
+  row.classList.remove('valid-green', 'valid-orange', 'valid-red');
+  dot.classList.remove('green', 'orange', 'red');
+
+  if (v !== null) {
+    const cat = getCategory(v);
+    row.classList.add(`valid-${cat}`);
+    dot.classList.add(cat);
+  }
+
+  updateAll();
+}
+
+function handleKeyDown(e, idx) {
+  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = document.getElementById(`inp-${idx + 1}`);
+    if (next) next.focus();
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = document.getElementById(`inp-${idx - 1}`);
+    if (prev) prev.focus();
+  }
+}
+
+function updateAll() {
+  const valid = values.filter(v => v !== null);
+  const n = valid.length;
+
+  // Count label
+  document.getElementById('count-label').textContent = `${n} / ${N_PILES}`;
+  document.getElementById('n-label').textContent = `n = ${n}`;
+
+  // Bins count
+  const counts = new Array(BINS.length).fill(0);
+  valid.forEach(v => {
+    const b = getBin(v);
+    if (b >= 0) counts[b]++;
+  });
+
+  // Update histogram
+  const maxCount = Math.max(...counts, 1);
+  const yBase = PAD.top + plotH;
+  const scale = 12; // on divise toujours par 12 pour avoir de la marge visuelle
+
+  BINS.forEach((bin, i) => {
+    const rect = document.getElementById(`bar-${i}`);
+    const valT = document.getElementById(`bar-val-${i}`);
+    const cnt = counts[i];
+    const barH = cnt > 0 ? Math.max((cnt / scale) * plotH, 4) : 0;
+    const yRect = yBase - barH;
+
+    rect.setAttribute('y', yRect);
+    rect.setAttribute('height', barH);
+
+    if (cnt > 0) {
+      rect.setAttribute('class', `bar-rect ${bin.cat}`);
+      valT.textContent = cnt;
+      valT.setAttribute('y', yRect - 4);
+      valT.setAttribute('class', 'bar-val-text');
+    } else {
+      rect.setAttribute('class', 'bar-rect empty');
+      valT.setAttribute('class', 'bar-val-text hidden');
+    }
+  });
+
+  // Stats
+  if (n === 0) {
+    ['min','max','range','mean','median'].forEach(k => {
+      const el = document.getElementById(`stat-${k}`);
+      el.textContent = '—';
+      el.className = 'stat-val empty';
+    });
+    ['green','orange','red'].forEach(c => {
+      document.getElementById(`cat-n-${c}`).textContent = '0';
+      document.getElementById(`cat-pct-${c}`).textContent = '0 %';
+      document.getElementById(`prog-${c}`).style.width = '0%';
+    });
+    return;
+  }
+
+  const sorted = [...valid].sort((a, b) => a - b);
+  const vmin = sorted[0];
+  const vmax = sorted[sorted.length - 1];
+  const vrange = vmax - vmin;
+  const vmean = valid.reduce((s, v) => s + v, 0) / n;
+  let vmedian;
+  if (n % 2 === 0) {
+    vmedian = (sorted[n/2-1] + sorted[n/2]) / 2;
+  } else {
+    vmedian = sorted[Math.floor(n/2)];
+  }
+
+  const fmt = v => v.toFixed(2);
+
+  const setStatEl = (id, val) => {
+    const el = document.getElementById(`stat-${id}`);
+    el.textContent = fmt(val);
+    el.className = 'stat-val';
+  };
+  setStatEl('min', vmin);
+  setStatEl('max', vmax);
+  setStatEl('range', vrange);
+  setStatEl('mean', vmean);
+  setStatEl('median', vmedian);
+
+  // Categories
+  const nGreen  = valid.filter(v => v >= 1.3).length;
+  const nOrange = valid.filter(v => v >= 1.1 && v < 1.3).length;
+  const nRed    = valid.filter(v => v < 1.1).length;
+
+  const pct = c => n > 0 ? Math.round((c / n) * 100) : 0;
+
+  document.getElementById('cat-n-green').textContent  = nGreen;
+  document.getElementById('cat-n-orange').textContent = nOrange;
+  document.getElementById('cat-n-red').textContent    = nRed;
+
+  document.getElementById('cat-pct-green').textContent  = `${pct(nGreen)} %`;
+  document.getElementById('cat-pct-orange').textContent = `${pct(nOrange)} %`;
+  document.getElementById('cat-pct-red').textContent    = `${pct(nRed)} %`;
+
+  document.getElementById('prog-green').style.width  = `${pct(nGreen)}%`;
+  document.getElementById('prog-orange').style.width = `${pct(nOrange)}%`;
+  document.getElementById('prog-red').style.width    = `${pct(nRed)}%`;
+}
+
+/* ═══════════════════════════════════════════
+   EXPORT PDF
+═══════════════════════════════════════════ */
+function exportPDF() {
+  // Forcer la date du jour si vide
+  const dateInp = document.getElementById('date');
+  if (!dateInp.value) {
+    const d = new Date();
+    dateInp.value = d.toISOString().split('T')[0];
+  }
+  window.print();
+}
+
+function clearAll() {
+  if (!confirm('Effacer toutes les valeurs saisies ?')) return;
+  for (let i = 1; i <= N_PILES; i++) {
+    const inp = document.getElementById(`inp-${i}`);
+    inp.value = '';
+    values[i-1] = null;
+    const row = document.getElementById(`row-${i}`);
+    const dot = document.getElementById(`dot-${i}`);
+    row.classList.remove('valid-green','valid-orange','valid-red');
+    dot.classList.remove('green','orange','red');
+  }
+  updateAll();
+}
+
+/* ─── Init date ─── */
+document.getElementById('date').valueAsDate = new Date();
+</script>
+</body>
+</html>
